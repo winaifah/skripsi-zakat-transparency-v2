@@ -1,13 +1,3 @@
-"""
-Scrape detail kampanye zakat dari Bersedekah.com.
-Input : data/raw/bersedekah_zakat_urls.csv  (atau custom path)
-Output: data/processed/bersedekah_details_<start>_<end>_<ts>.csv
-
-Kolom output sesuai skema Kitabisa + kolom lokasi khusus Bersedekah.
-
-Author: Arifah Deswina (D121221030)
-"""
-
 import sys, os, time, random, re, json, html as htmllib
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, parent_dir)
@@ -68,7 +58,6 @@ def safe_click(driver, element):
     time.sleep(0.5)
     driver.execute_script("arguments[0].click();", element)
 
-# ─────────────────────────────────────────────────────────────────
 def _parse_kontak_block(block, info):
     """Isi info dict dari satu blok kontak (footer div.box-4 atau navbar)."""
     for div in block.find_all('div'):
@@ -87,11 +76,11 @@ def _parse_kontak_block(block, info):
         elif 'fa-envelope' in cls:
             if txt and txt not in info['emails']:
                 info['emails'].append(txt)
-        elif 'fa-map-marker' in cls:   # matches fa-map-marker and fa-map-marker-alt
+        elif 'fa-map-marker' in cls:  
             if txt and not info['address']:
                 info['address'] = txt
 
-    # Social media: <i class="... link-sosmed" data-url="...">
+    # Social media
     sosmed_div = block.find('div', class_='sosmed')
     if sosmed_div:
         for icon in sosmed_div.find_all('i', attrs={'data-url': True}):
@@ -105,15 +94,8 @@ def _parse_kontak_block(block, info):
 
 
 def extract_contact(soup):
-    """
-    Ekstrak info kontak dari footer desktop: div.box-4 (kolom 'Kontak').
-    Fallback: navbar div.kontak-mobile (template lain).
-    Return dict + has_contact bool.
-    """
     info = {'phones': [], 'emails': [], 'address': '', 'social': []}
 
-    # ── Sumber utama: footer div.box-4 ──────────────────────────────
-    # <section class="footer row"> → <div class="box-4 col-lg-3">
     footer_sec = (soup.find('section', id='flex-footer') or
                   soup.find('section', class_=re.compile(r'\bfooter\b')))
     if footer_sec:
@@ -121,7 +103,6 @@ def extract_contact(soup):
         if box4:
             _parse_kontak_block(box4, info)
 
-    # ── Fallback: navbar kontak-mobile (template mobile) ────────────
     if not (info['phones'] or info['emails']):
         kontak_mobile = soup.find('div', class_=lambda c: c and 'kontak-mobile' in c)
         if kontak_mobile:
@@ -131,20 +112,17 @@ def extract_contact(soup):
     return info, has_contact
 
 def extract_organizer(soup):
-    """Nama, deskripsi, profile URL, dan legalitas dari footer + navbar."""
     org_name    = ''
     org_desc    = ''
     profile_url = ''
 
-    # ── Nama & deskripsi: label.nama-lembaga / label.deskripsi-lembaga ──
-    # Ada di div.box-1 dalam section.footer.row (id="flex-footer")
+    # ── Nama & deskripsi
     nama_lbl = soup.find('label', class_='nama-lembaga')
     desc_lbl = soup.find('label', class_='deskripsi-lembaga')
     org_name = nama_lbl.get_text(strip=True) if nama_lbl else ''
     org_desc = desc_lbl.get_text(strip=True) if desc_lbl else ''
 
-    # ── Fallback nama: <h1 class="heading-one"> format "OrgName - Title" ──
-    # Contoh: "Badan Amil Zakat Nasional - Zakat Maal"
+
     if not org_name:
         h1 = soup.find('h1', class_='heading-one')
         if h1:
@@ -153,7 +131,6 @@ def extract_organizer(soup):
             if len(parts) == 2:
                 org_name = parts[0].strip()
 
-    # ── Fallback nama: <title> format "Title - OrgName" ─────────────────
     if not org_name:
         title_tag = soup.find('title')
         if title_tag:
@@ -162,7 +139,6 @@ def extract_organizer(soup):
             if len(parts) == 2:
                 org_name = parts[1].strip()
 
-    # ── Profile URL dari navbar: <a> yang wrap <img class="logo_lembaga"> ─
     nav = soup.find('nav', class_=re.compile(r'navbar'))
     if nav:
         logo_img = nav.find('img', class_='logo_lembaga')
@@ -184,12 +160,7 @@ def extract_organizer(soup):
 
 # ─────────────────────────────────────────────────────────────────
 def scrape_news(driver, soup):
-    """
-    Klik tab Info Terbaru → Lihat Selengkapnya → Tampilkan Lainnya.
-    Setiap klik Tampilkan Lainnya memunculkan 10 item (Kegiatan ke-10..1).
-    Jika tombol masih ada setelah MAX_CLICKS kali → handle terpisah.
-    Return list of dict + actual count loaded.
-    """
+
     MAX_CLICKS = 3   # >30 item (tiap klik ~10 item) → simpan ke file terpisah
 
     # Klik tab Info Terbaru
@@ -200,7 +171,7 @@ def scrape_news(driver, soup):
     except Exception:
         return [], 0, False
 
-    # Klik "Lihat Selengkapnya" untuk unhide div.div-one
+    # Klik "Lihat Selengkapnya" 
     try:
         read_more = driver.find_element(
             By.CSS_SELECTOR, 'a.btn-read-more.read-more-mobile')
@@ -209,7 +180,7 @@ def scrape_news(driver, soup):
     except Exception:
         pass
 
-    # Klik "Tampilkan Lainnya" sampai habis atau MAX_CLICKS
+    # Klik "Tampilkan Lainnya" 
     click_count  = 0
     too_long     = False
 
@@ -226,7 +197,7 @@ def scrape_news(driver, soup):
             time.sleep(2)
             click_count += 1
         except Exception:
-            break   # Tombol tidak ditemukan → semua sudah termuat
+            break   
 
     soup3   = BeautifulSoup(driver.page_source, 'html.parser')
     div_one = soup3.find('div', class_='div-one')
@@ -246,7 +217,7 @@ def scrape_news(driver, soup):
         number = number_lbl.get_text(strip=True)   if number_lbl else ''
         loc    = location_s.find('span').get_text(strip=True) if location_s and location_s.find('span') else ''
 
-        # Konten: JS render ke p#kegiatan-{id}
+
         hidden = step.find('input', type='hidden', id=re.compile(r'^kegiatanID-'))
         content = ''
         if hidden:
@@ -254,7 +225,7 @@ def scrape_news(driver, soup):
             p_el = step.find('p', id=f'kegiatan-{kid}')
             if p_el:
                 content = clean_text(p_el)
-            # Fallback: ambil teks setelah hidden input (BeautifulSoup sibling teks)
+
             if not content:
                 lap_div = step.find('div', class_='detail-value-laporan')
                 if lap_div:
@@ -275,11 +246,10 @@ def scrape_news(driver, soup):
 
     loaded = len(items)
     if too_long:
-        print(f"      ⚠️ >30 updates: sudah {loaded} item dimuat, akan disimpan ke file JSON")
+        print(f" >30 updates: sudah {loaded} item dimuat, akan disimpan ke file JSON")
 
     return items, loaded, too_long
 
-# ─────────────────────────────────────────────────────────────────
 def scrape_campaign(driver, url, slug, campaign_no, title_from_csv=""):
     try:
         delay = random.uniform(6, 11)
@@ -289,7 +259,6 @@ def scrape_campaign(driver, url, slug, campaign_no, title_from_csv=""):
         driver.get(url)
         time.sleep(6)
 
-        # Scroll untuk trigger lazy-load
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(2)
         driver.execute_script("window.scrollTo(0, 0);")
@@ -303,7 +272,7 @@ def scrape_campaign(driver, url, slug, campaign_no, title_from_csv=""):
         except Exception:
             pass
 
-        # Scroll ke bawah lagi agar footer lazy-load terpicu, lalu kembali ke atas
+
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(3)
         driver.execute_script("window.scrollTo(0, 0);")
@@ -326,19 +295,18 @@ def scrape_campaign(driver, url, slug, campaign_no, title_from_csv=""):
         data['title'] = title_tag.get_text(strip=True) if title_tag else title_from_csv
 
         # ── Dana terkumpul & target ───────────────────────────────
-        # Collected: div#box-program-nominal-1 label.program-donasi
         box1 = soup.find('div', id='box-program-nominal-1')
         collected_lbl = box1.find('label', class_='program-donasi') if box1 else None
         data['collected_amount'] = (collected_lbl.get_text(strip=True)
                                     if collected_lbl else '')
 
-        # Target: div#box-value-yatim label (Tanpa Target atau nilai)
+        # Target
         box2 = soup.find('div', id='box-value-yatim')
         target_lbl = box2.find('label') if box2 else None
         data['target_amount'] = (target_lbl.get_text(strip=True)
                                  if target_lbl else '')
 
-        # Sisa hari / tanggal berakhir: div#subBlockA label.value
+        # Sisa hari / tanggal berakhir
         sub_a = soup.find('div', id='subBlockA')
         days_lbl = sub_a.find('label', class_='value') if sub_a else None
         data['days_left'] = (days_lbl.get_text(strip=True)
@@ -362,7 +330,7 @@ def scrape_campaign(driver, url, slug, campaign_no, title_from_csv=""):
         data['ind1_has_contact_direct'] = has_contact
         data['contact_info']            = json.dumps(contact_info, ensure_ascii=False)
 
-        # ── Campaign story (tab Detail aktif) ─────────────────────
+        # ── Campaign story  ─────────────────────
         box_detail = soup.find('div', id='boxDetail')
         if box_detail:
             desc_div = box_detail.find('div', class_='box-deskripsi')
@@ -381,7 +349,7 @@ def scrape_campaign(driver, url, slug, campaign_no, title_from_csv=""):
         data['ind2_has_mission'] = len(words) > 50
         data['ind2_word_count']  = len(words)
 
-        # ── Donor count (dari counter tab Muzaki) ─────────────────
+        # ── Donor count  ─────────────────
         donor_count = 0
         tab_donatur = soup.find('a', id='tabDonatur')
         if tab_donatur:
@@ -515,7 +483,6 @@ def main():
             failed_nos.append(campaign_no)
             print(f"  ✗ Gagal (no.{campaign_no})\n")
 
-        # Auto-save tiap 10
         if (i + 1) % 10 == 0 and results:
             tmp_df = pd.DataFrame(results)
             for col in COLUMNS:
@@ -544,22 +511,22 @@ def main():
         df.to_csv(out, index=False, encoding='utf-8')
 
         print("\n" + "=" * 65)
-        print("✅ SELESAI!")
+        print("SELESAI!")
         print("=" * 65)
         print(f"Berhasil : {len(results)}/{len(batch)}")
         print(f"Output   : {out}")
 
         if failed_nos:
-            print(f"\n⚠️  Gagal ({len(failed_nos)}): no. {failed_nos}")
+            print(f"\n Gagal ({len(failed_nos)}): no. {failed_nos}")
 
-        print("\n📊 INDICATOR COVERAGE:")
+        print("\n INDICATOR COVERAGE:")
         for col in COLUMNS:
             if col.startswith('ind') and col in df.columns:
                 n = df[col].astype(str).isin(['True','true','1']).sum()
                 print(f"  {col:<35}: {n}/{len(df)}")
         print("=" * 65)
     else:
-        print("\n⚠️ Tidak ada hasil — semua gagal.")
+        print("\n Tidak ada hasil — semua gagal.")
 
 if __name__ == '__main__':
     main()

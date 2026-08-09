@@ -1,15 +1,3 @@
-"""
-Kumpulkan URL kampanye zakat dari halaman search Bersedekah.com.
-Sumber  : https://www.bersedekah.com/program?search=zakat
-Filter  : href ATAU judul mengandung kata "zakat" (case-insensitive)
-Output  : data/raw/bersedekah_search_zakat_urls.csv
-
-Setelah selesai, script membandingkan hasil dengan file existing
-data/raw/bersedekah_zakat_urls.csv untuk deteksi duplikat.
-
-Author: Arifah Deswina (D121221030)
-"""
-
 import sys, os, time, random, re
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, parent_dir)
@@ -42,11 +30,7 @@ def init_driver():
     return driver
 
 def extract_links(soup):
-    """
-    Ekstrak semua link dari div.list-program > a[href].
-    Filter: href ATAU span.judul mengandung 'zakat' (case-insensitive).
-    Return list of dict.
-    """
+
     campaigns = []
     seen = set()
 
@@ -72,7 +56,7 @@ def extract_links(soup):
 
         seen.add(href)
 
-        # Organizer: span.lembaga (hapus img dan icon, ambil teks)
+        # Organizer
         lembaga_span = a.find('span', class_='lembaga')
         organizer = ''
         if lembaga_span:
@@ -80,7 +64,7 @@ def extract_links(soup):
                 tag.decompose()
             organizer = lembaga_span.get_text(strip=True)
 
-        # Dana terkumpul (preview)
+        # Dana terkumpul
         terkumpul_span = a.find('span', class_='terkumpul')
         collected = terkumpul_span.get_text(strip=True) if terkumpul_span else ''
 
@@ -141,7 +125,7 @@ def main():
         driver.quit()
 
     if not items:
-        print("\n⚠️ Tidak ada kampanye zakat ditemukan.")
+        print("\n Tidak ada kampanye zakat ditemukan.")
         return
 
     df = pd.DataFrame(items)
@@ -169,7 +153,7 @@ def main():
         hanya_lama = old_urls - new_urls
 
         print(f"\n{'='*65}")
-        print("📊 PERBANDINGAN DENGAN FILE EXISTING")
+        print(" PERBANDINGAN DENGAN FILE EXISTING")
         print(f"{'='*65}")
         print(f"  File existing ({os.path.basename(existing_path)}) : {len(df_old)} kampanye")
         print(f"  File search baru                              : {len(df)} kampanye")
@@ -186,7 +170,7 @@ def main():
         if duplikat:
             print(f"\n  DUPLIKAT ({len(duplikat)} URL ada di kedua file) — tidak perlu scrape ulang")
 
-        # Simpan daftar URL baru saja (untuk scraping selanjutnya jika ada)
+        # Simpan daftar URL baru saja
         if hanya_baru:
             df_new_only = df[df['url'].isin(hanya_baru)].reset_index(drop=True)
             df_new_only['no'] = df_new_only.index + 1
@@ -197,9 +181,9 @@ def main():
 
         print(f"{'='*65}")
     else:
-        print(f"\n⚠️  File existing tidak ditemukan: {existing_path}")
+        print(f"\n File existing tidak ditemukan: {existing_path}")
 
-    # Preview
+    
     print(f"\nPreview (10 pertama):")
     print(df[['no','title','organizer']].head(10).to_string(index=False))
 
