@@ -416,73 +416,41 @@ def main():
 Ekstraksi detail kampanye + profile organizer dari kitabisa.com
 """)
     
-    # Pilih mode input
-    print("Pilih mode input:")
-    print("  1. Dari kitabisa_urls_final_merged.csv (default)")
-    print("  2. Dari file custom CSV")
-
-    mode_choice = input("\nMode (1-2): ").strip()
-
-    if mode_choice == "2":
-        custom_path = input("Masukkan path file (relatif dari root project atau absolut): ").strip()
-        import os
+    default_path = config.RAW_DATA_PATH + 'kitabisa_urls_final_merged.csv'
+    custom_path = input(f"Path file CSV (kosongkan untuk default: kitabisa_urls_final_merged.csv): ").strip()
+    if custom_path:
         if not os.path.isabs(custom_path):
             custom_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), custom_path)
-        print(f"\n✓ Menggunakan file: {custom_path}")
-        df_urls = pd.read_csv(custom_path)
-        print(f"✓ Loaded {len(df_urls)} URLs (no. {df_urls['no'].min()} - {df_urls['no'].max()})\n")
-
-        print("Pilih batch:")
-        print("  1.  10 campaigns")
-        print("  2.  20 campaigns")
-        print("  3.  25 campaigns")
-        print("  4.  50 campaigns")
-        print("  5. Semua")
-        print("  6. Custom jumlah")
-        print("  7. Custom jumlah + start dari baris tertentu (1-based)")
-        batch_choice = input("\nPilihan (1-7): ").strip()
-        batch_map = {'1': 10, '2': 20, '3': 25, '4': 50}
-        if batch_choice == '7':
-            start_1 = int(input("Mulai dari baris ke berapa? (1-based): "))
-            batch_size = int(input("Scrape berapa kampanye? "))
-            campaigns = df_urls.iloc[start_1-1 : start_1-1+batch_size]
-        elif batch_choice == '6':
-            batch_size = int(input("Masukkan jumlah: "))
-            campaigns = df_urls.head(batch_size)
-        elif batch_choice == '5':
-            campaigns = df_urls
-        else:
-            batch_size = batch_map.get(batch_choice, 20)
-            campaigns = df_urls.head(batch_size)
-        print(f"✓ Akan scrape {len(campaigns)} kampanye (no. {campaigns['no'].min()} - {campaigns['no'].max()})\n")
+        csv_path = custom_path
     else:
-        print("\nPilih batch size:")
-        print("  1.  10 campaigns  (~10 menit)")
-        print("  2.  25 campaigns  (~25 menit)")
-        print("  3.  50 campaigns  (~50 menit)")
-        print("  4. 100 campaigns  (~1.5 jam)")
-        print("  5. Custom jumlah saja")
-        print("  6. Custom jumlah + start dari index tertentu")
+        csv_path = default_path
+    print(f"\n✓ Menggunakan file: {csv_path}")
+    df_urls = pd.read_csv(csv_path)
+    print(f"✓ Loaded {len(df_urls)} URLs (no. {df_urls['no'].min()} - {df_urls['no'].max()})\n")
 
-        choice = input("\nPilihan (1-6): ").strip()
-
-        batch_sizes = {'1': 10, '2': 25, '3': 50, '4': 100}
-
-        print("[1/3] Loading URLs...")
-        df_urls = pd.read_csv(config.RAW_DATA_PATH + 'kitabisa_urls_final_merged.csv')
-
-        if choice == '6':
-            start_idx = int(input("Mulai dari index ke berapa? (0-based, contoh: 100 → mulai dari no.101): "))
-            batch_size = int(input("Scrape berapa kampanye? "))
-            campaigns = df_urls.iloc[start_idx:start_idx + batch_size]
-        elif choice == '5':
-            batch_size = int(input("Masukkan jumlah: "))
-            campaigns = df_urls.head(batch_size)
-        else:
-            batch_size = batch_sizes.get(choice, 10)
-            campaigns = df_urls.head(batch_size)
-
-        print(f"✓ Loaded {len(campaigns)} URLs (no. {campaigns['no'].min()} - {campaigns['no'].max()})\n")
+    print("Pilih batch:")
+    print("  1.  10 campaigns")
+    print("  2.  25 campaigns")
+    print("  3.  50 campaigns")
+    print("  4. 100 campaigns")
+    print("  5. Semua")
+    print("  6. Custom jumlah")
+    print("  7. Custom jumlah + start dari baris tertentu (1-based)")
+    batch_choice = input("\nPilihan (1-7): ").strip()
+    batch_map = {'1': 10, '2': 25, '3': 50, '4': 100}
+    if batch_choice == '7':
+        start_1 = int(input("Mulai dari baris ke berapa? (1-based): "))
+        batch_size = int(input("Scrape berapa kampanye? "))
+        campaigns = df_urls.iloc[start_1-1 : start_1-1+batch_size]
+    elif batch_choice == '6':
+        batch_size = int(input("Masukkan jumlah: "))
+        campaigns = df_urls.head(batch_size)
+    elif batch_choice == '5':
+        campaigns = df_urls
+    else:
+        batch_size = batch_map.get(batch_choice, 10)
+        campaigns = df_urls.head(batch_size)
+    print(f"✓ Akan scrape {len(campaigns)} kampanye (no. {campaigns['no'].min()} - {campaigns['no'].max()})\n")
 
     print(f"\n✓ Will scrape {len(campaigns)} campaigns (with organizer profiles)\n")
 
